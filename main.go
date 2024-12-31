@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"chat_CLI_NATS/data"
 	"fmt"
 	"log"
 	"os"
@@ -18,10 +19,14 @@ func main() {
 
 	// NATS server IP
 	natsURL := os.Args[1]
-	// Chat channel
-	channel := os.Args[2]
-	// User name
-	name := os.Args[3]
+
+	// Create a ChatClient instance
+    client := &data.ChatClient{
+		// Chat channel
+        Channel: os.Args[2],
+		// User name
+        Name:    os.Args[3],
+    }
 
 	// Connect to NATS server
 	nc, err := nats.Connect(natsURL)
@@ -30,8 +35,10 @@ func main() {
 	}
 	defer nc.Close()
 
+	client.Nc = nc
+
 	// Subscribe to the channel
-	_, err = nc.Subscribe(channel, func(msg *nats.Msg) {
+	_, err = nc.Subscribe(client.Channel, func(msg *nats.Msg) {
 		// Show received messages
 		fmt.Println(string(msg.Data))
 	})
@@ -39,7 +46,7 @@ func main() {
 		log.Fatalf("Error al suscribirse al canal: %v", err)
 	}
 
-	fmt.Printf("Conectado al chat en el canal '%s'.\n", channel)
+	fmt.Printf("Conectado al chat en el canal '%s'.\n", client.Channel)
 
 	// Read messages written by the user on the terminal
 	scanner := bufio.NewScanner(os.Stdin)
@@ -47,17 +54,28 @@ func main() {
 		text := scanner.Text()
 		//Problem: Si estoy escribiendo y llega un mensaje lo escribe en mi línea, luego cuando envías se envia todo bien, pero quedar raro
 		if strings.TrimSpace(text) == "exit" {
-			fmt.Println("Saliendo del chat...")
+			exitChat(client)
 			break
 		}
 		// Publish the message in the channel
-		message := fmt.Sprintf("[%s]: %s", name, text)
-		if err := nc.Publish(channel, []byte(message)); err != nil {
-			log.Printf("Error al enviar el mensaje: %v", err)
-		}
+		publishMessage(client, text)
 	}
 
 	if err := scanner.Err(); err != nil {
 		log.Fatalf("Error al leer entrada: %v", err)
+	}
+}
+
+func publishMessage(client *data.ChatClient, text string) {
+	message := fmt.Sprintf("[%s]: %s", client.Name, text)
+		if err := client.Nc.Publish(client.Channel, []byte(message)); err != nil {
+			log.Printf("Error al enviar el mensaje: %v", err)
+		}
+}
+
+func exitChat(client *data.ChatClient) {
+	message := fmt.Sprintf("%s salió del chat...\n", client.Name)
+	if err := client.Nc.Publish(client.Channel, []byte(message)); err != nil {
+		log.Printf("Error al enviar el mensaje: %v", err)
 	}
 }
