@@ -60,6 +60,9 @@ func main() {
 	}
 	defer sub.Unsubscribe()
 
+	//Show connection to channel
+	message := fmt.Sprintf("%s joined the chat...\n", client.Name)
+	publishMessage(client, message)
 	fmt.Printf("Connecting to channel '%s'.\n", client.Channel)
 
 	// Read messages written by the user on the terminal
@@ -72,7 +75,7 @@ func main() {
 			break
 		}
 		// Publish the message in the channel
-		publishMessage(client, text)
+		sendMessage(client, text)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -80,17 +83,22 @@ func main() {
 	}
 }
 
-func publishMessage(client *data.ChatClient, text string) {
+// Function to send a message to the chat
+func sendMessage(client *data.ChatClient, text string) {
 	timestamp := time.Now().Format("02/01/2006 15:04:05")
 	message := fmt.Sprintf("[%s] %s: %s", timestamp, client.Name, text)
-		if err := client.Nc.Publish(client.Channel, []byte(message)); err != nil {
-			log.Printf("Error sending message: %v", err)
-		}
+	publishMessage(client, message)
 }
 
+//Function to show a exit message notification in the chat
 func exitChat(client *data.ChatClient) {
 	message := fmt.Sprintf("%s left the chat...\n", client.Name)
+	publishMessage(client, message)
+}
+
+//Function to publish the message through nats connection
+func publishMessage(client *data.ChatClient, message string) {
 	if err := client.Nc.Publish(client.Channel, []byte(message)); err != nil {
-		log.Printf("Error sending exit message: %v", err)
+		log.Printf("Error sending message: %v", err)
 	}
 }
