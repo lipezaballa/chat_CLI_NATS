@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -14,7 +15,7 @@ import (
 func main() {
 	// Validate arguments
 	if len(os.Args) != 4 {
-		log.Fatalf("Uso: %s <nats-url> <canal> <nombre>", os.Args[0])
+		log.Fatalf("Use: %s <nats-url> <canal> <nombre>", os.Args[0])
 	}
 
 	// NATS server IP
@@ -31,22 +32,35 @@ func main() {
 	// Connect to NATS server
 	nc, err := nats.Connect(natsURL)
 	if err != nil {
-		log.Fatalf("Error al conectar con NATS: %v", err)
+		log.Fatalf("Error connecting with NATS: %v", err)
 	}
 	defer nc.Close()
 
 	client.Nc = nc
 
-	// Subscribe to the channel
-	_, err = nc.Subscribe(client.Channel, func(msg *nats.Msg) {
-		// Show received messages
-		fmt.Println(string(msg.Data))
-	})
+	//Configure JetStream
+	js, err := nc.JetStream()
 	if err != nil {
-		log.Fatalf("Error al suscribirse al canal: %v", err)
+		log.Fatalf("Error initializing JetStream: %v", err)
 	}
 
-	fmt.Printf("Conectado al chat en el canal '%s'.\n", client.Channel)
+	// Recover messages from last hour (not needed because stream only persist message from last hour, but done to be ensured in case stream persist everything)
+	startTime := time.Now().Add(-1 * time.Hour)
+	subOpts := []nats.SubOpt{
+		nats.StartTime(startTime),
+	}
+
+	// Subscribe to the channel
+	sub, err := js.Subscribe(client.Channel, func(msg *nats.Msg) {
+		// Show received messages
+		fmt.Println(string(msg.Data))
+	}, subOpts...)
+	if err != nil {
+		log.Fatalf("Error subscribing to channel: %v", err)
+	}
+	defer sub.Unsubscribe()
+
+	fmt.Printf("Connecting to channel '%s'.\n", client.Channel)
 
 	// Read messages written by the user on the terminal
 	scanner := bufio.NewScanner(os.Stdin)
@@ -62,20 +76,21 @@ func main() {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatalf("Error al leer entrada: %v", err)
+		log.Fatalf("Error reading input: %v", err)
 	}
 }
 
 func publishMessage(client *data.ChatClient, text string) {
-	message := fmt.Sprintf("[%s]: %s", client.Name, text)
+	timestamp := time.Now().Format("02/01/2006 15:04:05")
+	message := fmt.Sprintf("[%s] %s: %s", timestamp, client.Name, text)
 		if err := client.Nc.Publish(client.Channel, []byte(message)); err != nil {
-			log.Printf("Error al enviar el mensaje: %v", err)
+			log.Printf("Error sending message: %v", err)
 		}
 }
 
 func exitChat(client *data.ChatClient) {
-	message := fmt.Sprintf("%s salió del chat...\n", client.Name)
+	message := fmt.Sprintf("%s left the chat...\n", client.Name)
 	if err := client.Nc.Publish(client.Channel, []byte(message)); err != nil {
-		log.Printf("Error al enviar el mensaje: %v", err)
+		log.Printf("Error sending exit message: %v", err)
 	}
 }
