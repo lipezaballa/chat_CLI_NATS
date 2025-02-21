@@ -1,8 +1,10 @@
 package main
 
 import (
+	"chat_CLI_NATS/data"
 	"log"
 	"time"
+
 	"github.com/nats-io/nats.go"
 )
 
@@ -14,22 +16,7 @@ func InitJetStream(client *data.ChatClient, channels []string) (*data.ChatClient
 		log.Fatalf("Error al inicializar JetStream: %v", err)
 		return nil, err
 	}
-	client.Nc.Js = &js
-
-	/*
-	log.Println("creando database messages_store")
-	kv, err := js.KeyValue("messages_store")
-	if err != nil {
-		log.Printf("Bucket 'messages_store' no encontrado, creándolo...")
-		// Crear el bucket si no existe
-		kv, err = js.CreateKeyValue(&nats.KeyValueConfig{
-			Bucket: "messages_store",
-		})
-		if err != nil {
-			log.Fatalf("Error al crear el KV Store: %v", err)
-			return nil, err
-		}
-	}*/
+	client.Js = js
 
 	streamName := "CHAT"
 	_, err = js.StreamInfo(streamName)

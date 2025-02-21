@@ -8,4 +8,5 @@ type ChatClient struct {
     Nc      *nats.Conn
     Channel string
     Name    string
+    Js      nats.JetStreamContext
 }
