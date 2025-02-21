@@ -77,3 +77,7 @@ log.Printf("Error sending message: %v", err)
 }
 
 Para salir, si se escribe "exit", se produce un break que sale del bucle del scanner de los inputs de teclado, se llega al final de la ejecución del programa y se cierra la conexión del cliente, mandando un mensaje por pantalla. Se ejecutan entonces los defer que cierran la conexión al servidor NATS y terminan la suscripción del usuario al channel.
+
+# DOCKER-COMPOSE
+
+Se ha añadido la creación del contenedor que ejecuta el servidor NATS para evitar tener que lanzar el contenedor manualmente. Sin embargo, la ejecución de los usuarios que se conectan al chat no se incluyen en el docker-compose para que se vayan creando a demanda en diferentes terminales, en los canales deseados. La instrucción a ejecutar para crear un usuario está indicada en el apartado "EJECUCIÓN" del README.md
