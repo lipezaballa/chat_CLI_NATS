@@ -39,10 +39,12 @@ func main() {
 	client.Nc = nc
 
 	//Configure JetStream
-	js, err := nc.JetStream()
+	var channels = {"chat", "chat.*"}
+	InitJetStream(client, channels)
+	/*js, err := nc.JetStream()
 	if err != nil {
 		log.Fatalf("Error initializing JetStream: %v", err)
-	}
+	}*/
 
 	// Recover messages from last hour (not needed because stream only persist message from last hour, but done to be ensured in case stream persist everything)
 	startTime := time.Now().Add(-1 * time.Hour)
@@ -51,7 +53,7 @@ func main() {
 	}
 
 	// Subscribe to the channel
-	sub, err := js.Subscribe(client.Channel, func(msg *nats.Msg) {
+	sub, err := client.Nc.js.Subscribe(client.Channel, func(msg *nats.Msg) {
 		// Show received messages
 		fmt.Println(string(msg.Data))
 	}, subOpts...)

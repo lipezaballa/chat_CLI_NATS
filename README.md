@@ -23,15 +23,9 @@ Este comando ejecuta un servidor NATS con JetStream habilitado para persistencia
 
 Se crea un stream persistente para los subjects:
 
-`nats stream add CHAT --subjects=chat,chat.* --storage=file --retention=limits --max-msgs=-1 --max-age=1h`
+DEPRECATED `nats stream add CHAT --subjects=chat,chat.* --storage=file --retention=limits --max-msgs=-1 --max-age=1h`
 
-Se crea un nuevo stream de nombre CHAT.
-Los subjects introducidos son todos los que comienzan por "chat.", además de "chat".
-El tipo de almacenamiento definido es en fichero, para que sea persistente incluso cuando el servidor se reinicia.
-El tipo de retención es "limits" que indica que se almacenan mientras no se excedan los límites definidos, por ejemplo el número de mensajes.
-En max-msgs se ha puesto -1, que quiere decir que no hay número máximo de mensajes.
-El tiempo máximo de vida de los mensajes en el stream es de 1 hora.
-Al ejecutarlo sale una serie de opciones que puedes configurar (algunas de ellas se modifican con los parámetros), con las elecciones por defecto funciona correctamente.
+
 
 Para ejecutar el programa se utiliza el siguiente comando:
 `go run main.go <url> <channel> <user>`
@@ -48,4 +42,46 @@ Se incluyen tres parámetros:
 
 # OBJETO
 
-El objeto "ChatClient" tiene la inforamción sel nombre del canal, del nombre de usuario, y la conexión nats. El objetivo de este objeto es agrupar la información necesaria que se tiene que pasar entre funciones para poder separar la funcionalidad sin tener que pasar muchos parámetros por separado.
+El objeto "ChatClient" tiene la inforamción del nombre del canal, del nombre de usuario, y la conexión nats. El objetivo de este objeto es agrupar la información necesaria que se tiene que pasar entre funciones para poder separar la funcionalidad sin tener que pasar muchos parámetros por separado.
+
+# EXPLICACIÓN DEL CÓDIGO
+Inicialmente se valida que el número de argumentos es correcto, imprimiendo un error indicando cómo debe ejecutarse el programa en caso de no tener los argumentos necesarios.
+
+Se realiza la conexión con el servidor NATS a partir de la dirección IP que se ha pasado como argumento (`nats.Connect(natsURL)`).
+
+A continuación se intenta acceder al stream CHAT, si no existe se configura el JetStream:
+ - Se crea un nuevo stream de nombre CHAT.
+ - Los subjects introducidos son todos los que comienzan por "chat.", además de "chat".
+ - El tipo de almacenamiento definido es en fichero, para que sea persistente incluso cuando el servidor se reinicia.
+ - El tipo de retención es "limits" que indica que se almacenan mientras no se excedan los límites definidos, por ejemplo el número de mensajes.
+ - En max-msgs se ha puesto -1, que quiere decir que no hay número máximo de mensajes.
+ - El tiempo máximo de vida de los mensajes en el stream es de 1 hora.
+
+ streamConfig := &nats.StreamConfig{
+			Name:     streamName,
+			Subjects: channels,
+			Retention: nats.LimitsPolicy,    
+			MaxMsgs:   -1,                      
+			MaxBytes:  -1,                      
+			MaxAge:    1 * time.Hour,                       
+			Storage:   nats.FileStorage,      
+		}
+
+ Se suscribe el cliente al channel, se reciben e imprimen los mensajes de la última hora y se envía un mensaje informativo de unión al chat.
+
+ sub, err := nc.js.Subscribe(client.Channel, func(msg *nats.Msg) {
+		// Show received messages
+		fmt.Println(string(msg.Data))
+	}, subOpts...)
+
+ Para los envíos de mensajes se utiliza el método "sendMessage" que da formato al mensaje de la forma indicada en los ejemplos de arriba. Se llama al método publish de la conexión nats y este lo envía a través del canal a todos los usuarios que estén suscritos.
+
+ if err := client.Nc.Publish(client.Channel, []byte(message)); err != nil {
+		log.Printf("Error sending message: %v", err)
+	}
+
+ Para salir, si se escribe "exit", se produce un break que sale del bucle del scanner de los inputs de teclado, se llega al final de la ejecución del programa y se cierra la conexión del cliente, mandando un mensaje por pantalla. Se ejecutan entonces los defer que cierran la conexión al servidor NATS y terminan la suscripción del usuario al channel.
+
+# DOCKER COMPOSE
+Se crea un contenedor con el servicio nats, y se crea un contenedor para la ejecución del chat
+
