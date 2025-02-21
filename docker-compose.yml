@@ -1,0 +1,7 @@
+services:
+    nats:
+        image: nats:latest
+        container_name: nats-server
+        command: ["-js"]
+        ports:
+            - "4222:4222" # Puerto para conexiones cliente
